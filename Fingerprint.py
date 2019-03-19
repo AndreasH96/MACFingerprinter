@@ -4,7 +4,7 @@ packets = pyshark.FileCapture('SniffFree8plus_7Plus_6Plus_HTC.pcapng')
 macaddress = dict()
 def appendToList(inputdict, MAC, SSID):
     if MAC in inputdict.keys() and SSID not in inputdict[MAC]:
-        inputdict[MAC] = inputdict[MAC] + " , " + SSID
+        inputdict[MAC] = inputdict[MAC] + "," + SSID
         #inputdict[MAC].append(SSID)
     else:
         inputdict[MAC] = SSID
