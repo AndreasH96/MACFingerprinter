@@ -8,7 +8,7 @@ class FingerPrint:
     def __init__(self,SSID):
         """
         Takes in the first SSID the MAC address has transmitted a probe request to
-        TimeStamp[0] is a Time Stamp for the call of __init__
+        TimeStamp[0] is a Time Stamp for the initiation of the Fingerprint
         TimeStamp[1] is a Time Stamp for the latest time a SSID was added to the fingerprint
         :param SSID:
         """
@@ -27,7 +27,7 @@ class FingerPrint:
         self.updateTimeStamp()
     def get_SSIDArray(self):
         """
-        :return:the SSID Array of the FingerPrint
+        :return: The SSID Array of the FingerPrint
         """
         if(self.SSIDArray != None):
             return self.SSIDArray
