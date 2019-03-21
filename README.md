@@ -1,2 +1,2 @@
-# SSIDFingerprint
+# MAC Fingerprinter
 Dummy Readme
