@@ -12,8 +12,6 @@ class FingerPrint:
         Takes in the MAC address to hash it if the device is using it's global
         TimeStamp[0] is a Time Stamp for the initiation of the Fingerprint
         TimeStamp[1] is a Time Stamp for the latest time a SSID was added to the fingerprint
-
-        test
         :param SSID:
         """
         self.TimeStamp = [datetime.datetime.now(),datetime.datetime.now()]
