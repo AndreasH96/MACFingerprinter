@@ -54,7 +54,7 @@ class FingerPrint:
 
     def hashFingerPrint(self):
         """
-        Hashes the current state of the SSID Array 
+        Hashes the current state of the SSID Array
         """
         if(self.SSIDArray != None):
             self.fingerHash = hash(str(self.SSIDArray))
