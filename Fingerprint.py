@@ -9,23 +9,30 @@ class FingerPrint:
     def __init__(self,SSID= None, MAC= None):
         """
         Takes in the first SSID the MAC address has transmitted a probe request to
+        Takes in the MAC address to hash it if the device is using it's global
         TimeStamp[0] is a Time Stamp for the initiation of the Fingerprint
         TimeStamp[1] is a Time Stamp for the latest time a SSID was added to the fingerprint
         :param SSID:
         """
         self.TimeStamp = [datetime.datetime.now(),datetime.datetime.now()]
-        self.SSIDHash = 0
-        self.SSIDArray = [SSID]
-        self.hashSSID()
-    def addSSID(self,SSID=None):
+        if((SSID == None) and (MAC != None)):
+            self.fingerHash= hash(MAC)
+            self.SSIDArray =None
+        else:
+            self.fingerHash = 0
+            self.SSIDArray = [SSID]
+            self.hashFingerPrint()
+
+    def addSSID(self,SSID):
         """
         Adds the SSID to the SSID Array, sorts the array, generates new hash and updates timestamp
         :param SSID: SSID from probe request
         """
         self.SSIDArray.append(SSID)
         self.SSIDArray.sort()
-        self.hashSSID()
+        self.hashFingerPrint()
         self.updateTimeStamp()
+
     def get_SSIDArray(self):
         """
         :return: The SSID Array of the FingerPrint
@@ -39,18 +46,18 @@ class FingerPrint:
         """
         return self.TimeStamp
 
-    def getSSIDHash(self):
+    def getHash(self):
         """
-        :return: The Hash of the current SSID Array
+        :return: The Hash of the fingerprint
         """
-        return self.SSIDHash
+        return self.fingerHash
 
-    def hashSSID(self):
+    def hashFingerPrint(self):
         """
-        Hashes the current state of the SSID Array
+        Hashes the current state of the SSID Array 
         """
-        self.SSIDHash = hash(str(self.SSIDArray))
-
+        if(self.SSIDArray != None):
+            self.fingerHash = hash(str(self.SSIDArray))
     def updateTimeStamp(self):
         """
          Updates TimeStamp[1] to the current date and time
@@ -69,28 +76,30 @@ class MACFingerPrinter:
         try:
             self.packets = pyshark.FileCapture('SniffFree8plus_7Plus_6Plus_HTC.pcapng')
         except:
-            print("Could not find file!")
+            print("Could not find packet file!")
 
         self.MAC_Fingerprints = {}
-        self.LogicalBitSetSigns =['2','3','6','7','A','B','E','F']
-    def appendToDict(self, inputMAC, SSID):
+        self.LogicalBitSetSigns =['2','3','6','7','a','b','e','f']
+    def appendToDict(self, inputMAC, inputSSID):
         """
         Adds the MAC and SSID to the dictionary if the MAC is new
         Adds SSID to corresponding MAC if the SSID has not been read to that MAC earlier
-        :param MAC: MAC address read from probe request
-        :param SSID: SSID read from probe request
+        :param inputMAC: MAC address read from probe request
+        :param inputSSID: SSID read from probe request
         """
         if((str(inputMAC))[1] in self.LogicalBitSetSigns):
 
-            if inputMAC in self.MAC_Fingerprints.keys() and SSID not in self.MAC_Fingerprints[inputMAC].get_SSIDArray():
+            if inputMAC in self.MAC_Fingerprints.keys() and inputSSID not in self.MAC_Fingerprints[inputMAC].get_SSIDArray():
                 newFingerprint = self.MAC_Fingerprints[inputMAC]
-                newFingerprint.addSSID(SSID)
+                newFingerprint.addSSID(inputSSID)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
             else:
-                fingerPrint = FingerPrint(SSID)
+                fingerPrint = FingerPrint(SSID = inputSSID)
                 self.MAC_Fingerprints[inputMAC] = fingerPrint
         else:
-            newFingerprint = FingerPrint(MAC=inputMAC)
+            if inputMAC not in self.MAC_Fingerprints.keys():
+                newFingerprint = FingerPrint(MAC=inputMAC)
+                self.MAC_Fingerprints[inputMAC] = newFingerprint
 
     def calcDeviceAmount(self):
         """
@@ -100,9 +109,13 @@ class MACFingerPrinter:
         amount = 0
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
-            if not (dictItem[1].getSSIDHash()  in readItems):
-                readItems.append(dictItem[1].getSSIDHash())
+            if not (dictItem[1].getHash()  in readItems):
+                readItems.append(dictItem[1].getHash())
                 amount = amount +1
+                print(
+                    "MAC-Address:{} --- Fingerprint:{} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
+                    .format(dictItem[0], dictItem[1].get_SSIDArray(), dictItem[1].getTimeStamp()[0], dictItem[1].getTimeStamp()[1],
+                            dictItem[1].getHash()))
         return amount
 
     def readMACAddresses(self):
@@ -138,10 +151,9 @@ class MACFingerPrinter:
         Presents Amount of read devices and the different MAC Addresses with Fingerprints.
         """
         print("Amount of devices discovered: {}".format(self.calcDeviceAmount()))
-        for item in self.MAC_Fingerprints.items():
-            print ( "MAC-Address:{} --- Fingerprint:{} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
-                    .format(item[0],item[1].get_SSIDArray(), item[1].getTimeStamp()[0],item[1].getTimeStamp()[1] ,item[1].getSSIDHash()) )
-            print(str(item[0])[1])
+ #       for item in self.MAC_Fingerprints.items():
+ #           print ( "MAC-Address:{} --- Fingerprint:{} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
+  #                  .format(item[0],item[1].get_SSIDArray(), item[1].getTimeStamp()[0],item[1].getTimeStamp()[1] ,item[1].getHash()) )
 
 Fingerprinter = MACFingerPrinter()
 Fingerprinter.readMACAddresses()
