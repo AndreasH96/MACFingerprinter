@@ -162,7 +162,7 @@ class MACFingerPrinter:
         """
         print("Amount of devices discovered: {}".format(self.calcDeviceAmount()))
         """plotter = plotMAC.plotMAC()
-        macArray = []
+        macArrays = []
         timeArray = []
         for currentItem in self.MAC_Fingerprints.items():
             macArray.append(currentItem[0])
