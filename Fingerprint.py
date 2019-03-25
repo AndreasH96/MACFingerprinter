@@ -8,7 +8,10 @@ class FingerPrint:
     FingerPrint is used to generate a fingerprint for a randomized MAC-address
     The fingerprint is currently based only on what SSIDs the device sends probe request to.
     """
-    def __init__(self,SSID= None, MAC= None  ,  OUI=None):
+
+    def __init__(self,SSID= None, MAC= None, timeStamp=datetime.datetime.now(), OUI=None):
+
+
         """
         Takes in the first SSID the MAC address has transmitted a probe request to
         Takes in the MAC address to hash it if the device is using it's global
@@ -16,7 +19,7 @@ class FingerPrint:
         TimeStamp[1] is a Time Stamp for the latest time a SSID was added to the fingerprint
         :param SSID:
         """
-        self.TimeStamp = [datetime.datetime.now(),datetime.datetime.now()]
+        self.TimeStamp = [timeStamp, 0]
         if((SSID == None) and (MAC != None)):
             self.fingerHash= hash(MAC)
             self.SSIDArray =None
@@ -24,11 +27,11 @@ class FingerPrint:
             self.fingerHash = 0
             self.SSIDArray = [SSID]
 
-
         if(OUI != None):
             self.OUI = OUI
         self.hashFingerPrint()
-    def addSSID(self,SSID):
+        
+    def addSSID(self, SSID, timeStamp):
         """
         Adds the SSID to the SSID Array, sorts the array, generates new hash and updates timestamp
         :param SSID: SSID from probe request
@@ -36,7 +39,7 @@ class FingerPrint:
         self.SSIDArray.append(SSID)
         self.SSIDArray.sort()
         self.hashFingerPrint()
-        self.updateTimeStamp()
+        self.updateTimeStamp(timeStamp)
 
     def get_SSIDArray(self):
         """
@@ -65,15 +68,19 @@ class FingerPrint:
         Hashes the current state of the SSID Array
         """
         if(self.SSIDArray != None):
+            self.fingerHash = hash(str(self.SSIDArray))
+
             if(self.OUI != None):
                 self.fingerHash = hash(str(self.SSIDArray) + str(self.OUI))
             else:
                 self.fingerHash = hash(str(self.SSIDArray))
-    def updateTimeStamp(self):
+    
+    def updateTimeStamp(self, timeStamp):
+
         """
          Updates TimeStamp[1] to the current date and time
         """
-        self.TimeStamp[1] = datetime.datetime.now()
+        self.TimeStamp[1] = timeStamp
 
 class MACFingerPrinter:
     """
@@ -85,7 +92,7 @@ class MACFingerPrinter:
         Initiates the Dictionary
         """
         try:
-            self.packets = pyshark.FileCapture('SniffFree8plus_7Plus_6Plus_HTC.pcapng')
+            self.packets = pyshark.FileCapture(input("Enter file path to a .pcapng file: "))
         except:
             print("Could not find packet file!")
 
@@ -93,7 +100,8 @@ class MACFingerPrinter:
             self.OUIs = json.load(JSON_DATA)
         self.MAC_Fingerprints = {}
         self.LogicalBitSetSigns =['2','3','6','7','a','b','e','f']
-    def appendToDict(self, inputMAC, inputSSID,inputOUI):
+
+    def appendToDict(self, inputMAC, inputSSID,inputOUI, timeStamp):
         """
         Adds the MAC and SSID to the dictionary if the MAC is new
         Adds SSID to corresponding MAC if the SSID has not been read to that MAC earlier
@@ -104,14 +112,14 @@ class MACFingerPrinter:
 
             if inputMAC in self.MAC_Fingerprints.keys() and inputSSID not in self.MAC_Fingerprints[inputMAC].get_SSIDArray():
                 newFingerprint = self.MAC_Fingerprints[inputMAC]
-                newFingerprint.addSSID(inputSSID)
+                newFingerprint.addSSID(inputSSID, timeStamp)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
             else:
-                fingerPrint = FingerPrint(SSID = inputSSID,OUI=inputOUI)
+                fingerPrint = FingerPrint(SSID = inputSSID,OUI=inputOUI, timeStamp=timeStamp)
                 self.MAC_Fingerprints[inputMAC] = fingerPrint
         else:
             if inputMAC not in self.MAC_Fingerprints.keys():
-                newFingerprint = FingerPrint(MAC=inputMAC,OUI = inputOUI)
+                newFingerprint = FingerPrint(MAC=inputMAC,OUI = inputOUI, timeStamp=timeStamp)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
 
     def calcDeviceAmount(self):
@@ -141,8 +149,9 @@ class MACFingerPrinter:
                 nossid = False
                 if not str(packet.wlan_mgt.tag)[:34] == "Tag: SSID parameter set: Broadcast":
                     ssid = packet.wlan_mgt.ssid
+
                     oui = packet.wlan_mgt.tag_oui
-                    self.appendToDict(packet.wlan.ta, ssid,oui)
+                    self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
                 else:
                     nossid = True
 
@@ -152,9 +161,10 @@ class MACFingerPrinter:
                 try:
                     if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
                         ssid = packet[3].ssid
+
                         oui = hex(int(packet[3].tag_oui))
                         oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
-                        self.appendToDict(packet.wlan.ta, ssid,oui)
+                        self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
 
                     else:
                         nossid = True
@@ -173,9 +183,9 @@ class MACFingerPrinter:
             macArray.append(currentItem[0])
             print(timeArray.append(currentItem[1].getTimeStamp().total_seconds()))
         plotter.setPlot(self.MAC_Fingerprints.keys())"""
- #       for item in self.MAC_Fingerprints.items():
- #           print ( "MAC-Address:{} --- Fingerprint:{} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
-  #                  .format(item[0],item[1].get_SSIDArray(), item[1].getTimeStamp()[0],item[1].getTimeStamp()[1] ,item[1].getHash()) )
+#       for item in self.MAC_Fingerprints.items():
+#           print ( "MAC-Address:{} --- Fingerprint:{} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
+#                  .format(item[0],item[1].get_SSIDArray(), item[1].getTimeStamp()[0],item[1].getTimeStamp()[1] ,item[1].getHash()) )
 
 Fingerprinter = MACFingerPrinter()
 Fingerprinter.readMACAddresses()
