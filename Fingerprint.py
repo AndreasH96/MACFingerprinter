@@ -55,7 +55,7 @@ class FingerPrint:
 
     def getHash(self):
         """
-        :return: The Hash of the fingerprsint
+        :return: The Hash of the fingerprint
         """
         return self.fingerHash
 
