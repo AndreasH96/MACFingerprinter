@@ -1,6 +1,7 @@
 import pyshark
 import datetime
-import plotMAC
+import json
+#from Fingerprint import plotMAC
 class FingerPrint:
 
     """
@@ -55,7 +56,7 @@ class FingerPrint:
 
     def getHash(self):
         """
-        :return: The Hash of the fingerprsint
+        :return: The Hash of the fingerprint
         """
         return self.fingerHash
 
@@ -88,6 +89,8 @@ class MACFingerPrinter:
         except:
             print("Could not find packet file!")
 
+        with open("assets\OUIs.json") as JSON_DATA:
+            self.OUIs = json.load(JSON_DATA)
         self.MAC_Fingerprints = {}
         self.LogicalBitSetSigns =['2','3','6','7','a','b','e','f']
     def appendToDict(self, inputMAC, inputSSID,inputOUI):
@@ -124,7 +127,7 @@ class MACFingerPrinter:
                 amount = amount +1
                 print(
                     "MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
-                    .format(dictItem[0], dictItem[1].get_SSIDArray(),dictItem[1].getOUI(), dictItem[1].getTimeStamp()[0], dictItem[1].getTimeStamp()[1],
+                    .format(dictItem[0], dictItem[1].get_SSIDArray(),self.OUIs[dictItem[1].getOUI()], dictItem[1].getTimeStamp()[0], dictItem[1].getTimeStamp()[1],
                             dictItem[1].getHash()))
         return amount
 
@@ -132,6 +135,7 @@ class MACFingerPrinter:
         """
         Reads probe requests packets and extracts valuable parts
         """
+
         for packet in self.packets:
             if "wlan_mgt" in packet:
                 nossid = False
@@ -148,7 +152,8 @@ class MACFingerPrinter:
                 try:
                     if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
                         ssid = packet[3].ssid
-                        oui = packet[3].tag_oui
+                        oui = hex(int(packet[3].tag_oui))
+                        oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
                         self.appendToDict(packet.wlan.ta, ssid,oui)
 
                     else:

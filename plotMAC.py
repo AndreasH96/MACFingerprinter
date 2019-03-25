@@ -29,7 +29,7 @@ class plotMAC:
             self.thePlot.axis(self.axis)
         self.thePlot.show()
 
-"""plotter = plotMAC()
+plotter = plotMAC()
 plotter.setPlot([1,2,3,4], [1,4,9,16])
 plotter.setAxis([0, 6, 0, 20])
-plotter.Plot()"""
+plotter.Plot()
