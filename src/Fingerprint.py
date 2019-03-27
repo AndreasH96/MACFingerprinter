@@ -188,10 +188,31 @@ class MACFingerPrinter:
                     try:
                         if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
                             ssid = packet[3].ssid
+                            try:
+                                oui = hex(int(packet[3].tag_oui))
+                                oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                            except:
+                                oui = 000000
+                            try:
+                                htCap = packet[3].ht_capabilities
+                            except:
+                                htCap = 0
+                            extCapField = []
 
-                            oui = hex(int(packet[3].tag_oui))
-                            oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
-                            htCap = packet[3].ht_capabilities
+                            tempOcts = []
+                            for extCapBit in range(0,64):
+                                try:
+                                    exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+                                    if "x" in tempOcts[extCapBit]:
+                                        tempOcts[extCapBit] = int(tempOcts[extCapBit][2:])
+                                    if (extCapBit % 8 == 0) and extCapBit > 0:
+                                        extCapField.append(tempOcts[extCapBit-8:extCapBit])
+
+                                except:
+                                    pass
+                            #print(extCapField)
+
+
                             self.AllPackets[packet.wlan.ta] = packet
                             self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time)
 
@@ -213,7 +234,7 @@ class MACFingerPrinter:
                 data2 = packet2[1]
                 jaccard = self.JaccardComparator.comparePackets(packet1[1],packet2[1])
                 print("Jaccard similarity of packets {} and {} is : {}".format(packet1[0], packet2[0], jaccard))
-                if((0.49 < jaccard <1 ) and packet1[1].OUI == packet2[1].OUI and ( packet1[1].HTCapabilities == packet2[1].HTCapabilities)):
+                if(0.5 < jaccard <1 ):
                     packet1[1].mergeFingerPrints(packet2[1])
                     self.UniqueDevices.remove(packet2)
                     break
@@ -230,11 +251,19 @@ class MACFingerPrinter:
         Fingerprinter.processFingerprints()
         print("Amount of devices discovered: {}".format(len(self.UniqueDevices)))
         for item in self.UniqueDevices:
-            print(
-                "MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
-                    .format(item[0], item[1].getSSIDArray(), self.OUIs[item[1].getOUI()],
-                            item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
-                            item[1].getHash()))
+            if item[1].getOUI() in self.OUIs.keys():
+
+                print(
+                    "MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
+                        .format(item[0], item[1].getSSIDArray(), self.OUIs[item[1].getOUI()],
+                                item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
+                                item[1].getHash()))
+            else:
+                print(
+                    "MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
+                        .format(item[0], item[1].getSSIDArray(), item[1].getOUI(),
+                                item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
+                                item[1].getHash()))
 Fingerprinter = MACFingerPrinter()
 Fingerprinter.readMACAddresses()
 
