@@ -197,8 +197,8 @@ class MACFingerPrinter:
                                 htCap = packet[3].ht_capabilities
                             except:
                                 htCap = 0
+                            """-------------------------UNDER PROCESS------------------------"""
                             extCapField = []
-
                             tempOcts = []
                             for extCapBit in range(0,64):
                                 try:
@@ -211,7 +211,7 @@ class MACFingerPrinter:
                                 except:
                                     pass
                             #print(extCapField)
-
+                            """--------------------------------------------------------------"""
 
                             self.AllPackets[packet.wlan.ta] = packet
                             self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time)
