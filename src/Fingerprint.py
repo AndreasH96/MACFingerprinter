@@ -268,3 +268,5 @@ Fingerprinter = MACFingerPrinter()
 Fingerprinter.readMACAddresses()
 
 Fingerprinter.presentUniqueDevices()
+
+
