@@ -112,14 +112,14 @@ class MACFingerPrinter:
         """
         try:
             file = input("Enter file path to a .pcapng file: ")
-            self.packets = pyshark.FileCapture(input_file=file)
+            self.packets = pyshark.FileCapture(input_file=file, display_filter= 'wlan.fc.type_subtype eq 4  ')
         except:
             print("Could not find packet file!")
 
         with open("../assets/OUIs.json") as JSON_DATA:
             self.OUIs = json.load(JSON_DATA)
         self.MAC_Fingerprints = {}
-        self.LogicalBitSetSigns =['2','3','6','7','a','b','e','f']
+        self.LocalBitSetSigns =['2','3','6','7','a','b','e','f']
         self.UniqueDevices = []
         self.JaccardComparator = JaccardComparator()
         #TEMPORARY TEST ARRAY
@@ -133,7 +133,7 @@ class MACFingerPrinter:
         :param inputSSID: SSID read from probe request
         """
 
-        if((str(inputMAC))[1] in self.LogicalBitSetSigns):
+        if((str(inputMAC))[1] in self.LocalBitSetSigns):
 
             if inputMAC in self.MAC_Fingerprints.keys() and inputSSID not in self.MAC_Fingerprints[inputMAC].getSSIDArray():
                 newFingerprint = self.MAC_Fingerprints[inputMAC]
@@ -202,15 +202,25 @@ class MACFingerPrinter:
                             tempOcts = []
                             for extCapBit in range(0,64):
                                 try:
-                                    exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
-                                    if "x" in tempOcts[extCapBit]:
-                                        tempOcts[extCapBit] = int(tempOcts[extCapBit][2:])
-                                    if (extCapBit % 8 == 0) and extCapBit > 0:
-                                        extCapField.append(tempOcts[extCapBit-8:extCapBit])
+                                    if(extCapBit == 41):
+                                        threeBits = 0
+                                        exec('threeBits ='  + 'packet[3].extcap_serv_int_granularity')
+                                        for bit in range(0,3):
+                                            exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
+                                        extCapBit = 43
+                                    else:
+                                        exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
 
+                                        if "x" in tempOcts[extCapBit]:
+                                            tempOcts[extCapBit] = int(tempOcts[extCapBit][2:])
+                                        if (extCapBit % 8 == 0) and extCapBit > 0:
+                                            byteString = ""
+                                            for item in  range(extCapBit-8,extCapBit):
+                                                byteString = byteString +  tempOcts[item]
+                                            extCapField.append(byteString)
                                 except:
                                     pass
-                            #print(extCapField)
+                           # print(extCapField)
                             """--------------------------------------------------------------"""
 
                             self.AllPackets[packet.wlan.ta] = packet
