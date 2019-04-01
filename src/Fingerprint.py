@@ -180,79 +180,83 @@ class MACFingerPrinter:
                     else:
                         nossid = True
             else:
-                if int(packet.wlan.fc_type_subtype) == Probe_Request_Type:
-                    nossid = False
-                    try:
-                        if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
-                            ssid = packet[3].ssid
+                nossid = False
+                try:
+                    if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
+                        ssid = packet[3].ssid
+                        try:
+                            oui = hex(int(packet[3].tag_oui))
+                            oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                        except:
+                            oui = 000000
+                        try:
+                            htCap = packet[3].ht_capabilities
+                        except:
+                            htCap = 0
+                        """-------------------------Extraction of Extended Capabilities------------------------"""
+                        extCapField = []
+                        tempOcts = []
+                        for extCapBit in range(0,64):
                             try:
-                                oui = hex(int(packet[3].tag_oui))
-                                oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                                if(extCapBit == 41):
+                                    """This is done since bit 41-43 are merged together as one variable within Wireshark/Pyshark"""
+                                    threeBits =  packet[3].extcap_serv_int_granularity
+                                    for bit in range(0,3):
+                                        exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
+                                    extCapBit = 43
+                                elif(extCapBit == 60):
+                                    """This is done since Wireshark 2.6.6 has a bug where the Protected QLoad report (bit 60) is read as bit 61"""
+
+                                    tempOcts.append('0')
+                                else:
+                                    exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+
+                                    if "x" in tempOcts[extCapBit %8]:
+                                        tempOcts[extCapBit % 8] = int(tempOcts[extCapBit % 8][2:])
+
+                                    if ((extCapBit +1) % 8 == 0) and extCapBit > 0:
+                                        byteString = ""
+                                        for item in  range(0,8):
+                                            byteString = byteString +  str(tempOcts[item])
+                                        tempOcts.clear()
+                                        extCapField.append(str(int((byteString[4:8])[::-1],2)) + str(int((byteString[:4])[::-1],2)))
+
                             except:
-                                oui = 000000
-                            try:
-                                htCap = packet[3].ht_capabilities
-                            except:
-                                htCap = 0
-                            """-------------------------Extraction of Extended Capabilities------------------------"""
-                            extCapField = []
-                            tempOcts = []
-                            #print(datetime.datetime.now())
-                            for extCapBit in range(0,64):
-                                try:
-                                    if(extCapBit == 41):
-                                        """This is done since bit 41-43 are merged together as one variable within Wireshark/Pyshark"""
-                                        threeBits =  packet[3].extcap_serv_int_granularity
-                                        for bit in range(0,3):
-                                            exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
-                                        extCapBit = 43
-                                    elif(extCapBit == 60):
-                                        """This is done since Wireshark 2.6.6 has a bug where the Protected QLoad report (bit 60) is read as bit 61"""
+                                pass
+                        print("Reading packet number: {}".format(packet.number))
+                        """------------------------------------------------------------------------------------"""
 
-                                        tempOcts.append('0')
-                                    else:
-                                        exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+                        self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time, extCapField)
 
-                                        if "x" in tempOcts[extCapBit %8]:
-                                            tempOcts[extCapBit % 8] = int(tempOcts[extCapBit % 8][2:])
-
-                                        if ((extCapBit +1) % 8 == 0) and extCapBit > 0:
-                                            byteString = ""
-                                            for item in  range(0,8):
-                                                byteString = byteString +  str(tempOcts[item])
-                                            tempOcts.clear()
-                                            extCapField.append(str(int((byteString[4:8])[::-1],2)) + str(int((byteString[:4])[::-1],2)))
-
-                                except:
-                                    pass
-                            print(packet.number)
-                            """------------------------------------------------------------------------------------"""
-
-                            self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time, extCapField)
-
-                        else:
-                            nossid = True
-                    except:
-                        pass
+                    else:
+                        nossid = True
+                except:
+                    pass
 
     def processFingerprints(self):
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
-            if not (dictItem[1].getHash()  in readItems):
+            if not (dictItem[1].getHash() in readItems):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
 
         for packet1 in self.UniqueDevices:
-            print("Processing packet nr: {} of {}".format(self.UniqueDevices.index(packet1) +1,len(self.UniqueDevices)))
+            matches = []
+            print(
+                "Processing packet nr: {} of {}".format(self.UniqueDevices.index(packet1) + 1, len(self.UniqueDevices)))
             for packet2 in self.UniqueDevices:
                 data1 = packet1[1]
                 data2 = packet2[1]
-                jaccard = self.JaccardComparator.comparePackets(packet1[1],packet2[1])
-                print("Jaccard similarity of packets {} and {} is : {}".format(packet1[0], packet2[0], jaccard))
-                if(0.5 < jaccard <1 ):
-                    packet1[1].mergeFingerPrints(packet2[1])
-                    self.UniqueDevices.remove(packet2)
-                    break
+                if (packet1[0] != packet2[0]):
+                    jaccard = self.JaccardComparator.comparePackets(packet1[1], packet2[1])
+                    print("Similarity of packets {} and {} is : {}".format(packet1[0], packet2[0], jaccard))
+                    if (0.5 < jaccard < 1):
+                        matches.append(packet2)
+            for match in matches:
+                packet1[1].mergeFingerPrints(match[1])
+                self.UniqueDevices.remove(match)
+                print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
+
 
     def presentUniqueDevices(self):
         """
