@@ -14,7 +14,7 @@ class FingerPrint:
     The fingerprint is currently based only on what SSIDs the device sends probe request to.
     """
 
-    def __init__(self,SSID= None, MAC= None, timeStamp=datetime.datetime.now(), OUI=None):
+    def __init__(self,SSID= None, MAC= None, timeStamp=datetime.datetime.now(), OUI=None, extCap= None):
 
         """
         Takes in the first SSID the MAC address has transmitted a probe request to
@@ -34,6 +34,7 @@ class FingerPrint:
         if(OUI != None):
             self.OUI = OUI
         self.HTCapabilities = None
+        self.ExtendedCapabilities = extCap
         self.hashFingerPrint()
     def addExtendedCapabilitiesLen(self,input):
         self.ExtendedCapLen = input
@@ -112,7 +113,7 @@ class MACFingerPrinter:
         """
         try:
             file = input("Enter file path to a .pcapng file: ")
-            self.packets = pyshark.FileCapture(input_file=file, display_filter= 'wlan.fc.type_subtype eq 4  ')
+            self.packets = pyshark.FileCapture(input_file=file, display_filter= 'wlan.fc.type_subtype eq 4 ')
         except:
             print("Could not find packet file!")
 
@@ -122,10 +123,8 @@ class MACFingerPrinter:
         self.LocalBitSetSigns =['2','3','6','7','a','b','e','f']
         self.UniqueDevices = []
         self.JaccardComparator = JaccardComparator()
-        #TEMPORARY TEST ARRAY
-        self.AllPackets = {}
 
-    def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap, timeStamp):
+    def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap, timeStamp,extCap):
         """
         Adds the MAC and SSID to the dictionary if the MAC is new
         Adds SSID to corresponding MAC if the SSID has not been read to that MAC earlier
@@ -141,12 +140,12 @@ class MACFingerPrinter:
                 newFingerprint.addHTCapabilities(inputHTCap)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
             else:
-                fingerPrint = FingerPrint(SSID = inputSSID,OUI=inputOUI, timeStamp=timeStamp)
+                fingerPrint = FingerPrint(SSID = inputSSID,OUI=inputOUI, timeStamp=timeStamp, extCap = extCap)
                 fingerPrint.addHTCapabilities(inputHTCap)
                 self.MAC_Fingerprints[inputMAC] = fingerPrint
         else:
             if inputMAC not in self.MAC_Fingerprints.keys():
-                newFingerprint = FingerPrint(SSID = inputSSID, MAC=inputMAC,OUI = inputOUI, timeStamp=timeStamp)
+                newFingerprint = FingerPrint(SSID = inputSSID, MAC=inputMAC,OUI = inputOUI, timeStamp=timeStamp, extCap = extCap)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
 
     def calcDeviceAmount(self):
@@ -180,79 +179,84 @@ class MACFingerPrinter:
                         self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
                     else:
                         nossid = True
-
-
             else:
-                if int(packet.wlan.fc_type_subtype) == Probe_Request_Type:
-                    nossid = False
-                    try:
-                        if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
-                            ssid = packet[3].ssid
+                nossid = False
+                try:
+                    if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
+                        ssid = packet[3].ssid
+                        try:
+                            oui = hex(int(packet[3].tag_oui))
+                            oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                        except:
+                            oui = 000000
+                        try:
+                            htCap = packet[3].ht_capabilities
+                        except:
+                            htCap = 0
+                        """-------------------------Extraction of Extended Capabilities------------------------"""
+                        extCapField = []
+                        tempOcts = []
+                        for extCapBit in range(0,64):
                             try:
-                                oui = hex(int(packet[3].tag_oui))
-                                oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                                if(extCapBit == 41):
+                                    """This is done since bit 41-43 are merged together as one variable within Wireshark/Pyshark"""
+                                    threeBits =  packet[3].extcap_serv_int_granularity
+                                    for bit in range(0,3):
+                                        exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
+                                    extCapBit = 43
+                                elif(extCapBit == 60):
+                                    """This is done since Wireshark 2.6.6 has a bug where the Protected QLoad report (bit 60) is read as bit 61"""
+
+                                    tempOcts.append('0')
+                                else:
+                                    exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+
+                                    if "x" in tempOcts[extCapBit %8]:
+                                        tempOcts[extCapBit % 8] = int(tempOcts[extCapBit % 8][2:])
+
+                                    if ((extCapBit +1) % 8 == 0) and extCapBit > 0:
+                                        byteString = ""
+                                        for item in  range(0,8):
+                                            byteString = byteString +  str(tempOcts[item])
+                                        tempOcts.clear()
+                                        extCapField.append(str(int((byteString[4:8])[::-1],2)) + str(int((byteString[:4])[::-1],2)))
+
                             except:
-                                oui = 000000
-                            try:
-                                htCap = packet[3].ht_capabilities
-                            except:
-                                htCap = 0
-                            """-------------------------UNDER PROCESS------------------------"""
-                            extCapField = []
-                            tempOcts = []
-                            for extCapBit in range(0,64):
-                                try:
-                                    if(extCapBit == 41):
-                                        threeBits = 0
-                                        exec('threeBits ='  + 'packet[3].extcap_serv_int_granularity')
-                                        for bit in range(0,3):
-                                            exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
-                                        extCapBit = 43
-                                    else:
-                                        exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+                                pass
+                        print("Reading packet number: {}".format(packet.number))
+                        """------------------------------------------------------------------------------------"""
 
-                                        if "x" in tempOcts[extCapBit]:
-                                            tempOcts[extCapBit] = int(tempOcts[extCapBit][2:])
-                                        if (extCapBit % 8 == 0) and extCapBit > 0:
-                                            byteString = ""
-                                            for item in  range(extCapBit-8,extCapBit):
-                                                byteString = byteString +  tempOcts[item]
-                                            extCapField.append(byteString)
-                                except:
-                                    pass
-                           # print(extCapField)
-                            """--------------------------------------------------------------"""
+                        self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time, extCapField)
 
-                            self.AllPackets[packet.wlan.ta] = packet
-                            self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time)
-
-                        else:
-                            nossid = True
-                    except:
-                        pass
+                    else:
+                        nossid = True
+                except:
+                    pass
 
     def processFingerprints(self):
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
-            if not (dictItem[1].getHash()  in readItems):
+            if not (dictItem[1].getHash() in readItems):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
 
         for packet1 in self.UniqueDevices:
+            matches = []
+            print(
+                "Processing packet nr: {} of {}".format(self.UniqueDevices.index(packet1) + 1, len(self.UniqueDevices)))
             for packet2 in self.UniqueDevices:
                 data1 = packet1[1]
                 data2 = packet2[1]
-                jaccard = self.JaccardComparator.comparePackets(packet1[1],packet2[1])
-                print("Jaccard similarity of packets {} and {} is : {}".format(packet1[0], packet2[0], jaccard))
-                if(0.5 < jaccard <1 ):
-                    packet1[1].mergeFingerPrints(packet2[1])
-                    self.UniqueDevices.remove(packet2)
-                    break
+                if (packet1[0] != packet2[0]):
+                    jaccard = self.JaccardComparator.comparePackets(packet1[1], packet2[1])
+                    print("Similarity of packets {} and {} is : {}".format(packet1[0], packet2[0], jaccard))
+                    if (0.5 < jaccard < 1):
+                        matches.append(packet2)
+            for match in matches:
+                packet1[1].mergeFingerPrints(match[1])
+                self.UniqueDevices.remove(match)
+                print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
 
-    def calcJaccard_Similarity(self,object1,object2):
-        intersection_cadrinality = len(set.intersection(*[set(object1),set(object2)]))
-        union_cardinality = len(set.union(*[set(object1),set(object2)]))
-        return intersection_cadrinality/float(union_cardinality)
 
     def presentUniqueDevices(self):
         """
