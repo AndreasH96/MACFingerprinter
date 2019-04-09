@@ -23,7 +23,7 @@ class FingerPrint:
         TimeStamp[1] is a Time Stamp for the latest time a SSID was added to the fingerprint
         :param SSID:
         """
-        self.TimeStamp = [timeStamp, 0]
+        self.TimeStamp = [timeStamp, datetime.datetime.min]
         if MAC != None:
             self.fingerHash= hash(MAC)
 
@@ -101,7 +101,8 @@ class FingerPrint:
         for ssid in fingerprint.getSSIDArray():
             if ssid not in self.SSIDArray:
                 self.addSSID(ssid)
-
+        if self.TimeStamp[1] < fingerprint.TimeStamp[1]:
+            self.TimeStamp[1] = fingerprint.TimeStamp[1]
 class MACFingerPrinter:
     """
     This program creates a python Dictionary with Randomized MAC-addresses as keys and Fingerprints as items. This is used
