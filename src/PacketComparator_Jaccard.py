@@ -21,7 +21,7 @@ class JaccardComparator:
             """-------------------------------"""
 
 
-            
+
             """---------Cosine Method---------"""
             a_vals = Counter(packet1.SSIDArray)
             b_vals = Counter(packet2.SSIDArray)

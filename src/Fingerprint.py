@@ -83,8 +83,6 @@ class FingerPrint:
             if "SSID: " in self.SSIDArray and len(self.SSIDArray) >1:
                 self.SSIDArray.remove("SSID: ")
 
-            self.fingerHash = hash(str(self.SSIDArray))
-
             if(self.OUI != None):
                 self.fingerHash = hash(str(self.SSIDArray) + str(self.OUI))
             else:
