@@ -1,7 +1,8 @@
 import pyshark
 import datetime
 import json
-from PacketComparator_Jaccard import JaccardComparator
+from PacketComparator import PacketComparator
+from timeAnalysis import TimeAnalyser
 
 
 
@@ -105,8 +106,8 @@ class MACFingerPrinter:
         ----------------------Initiates the Dictionary------------------------------------
         """
         try:
-            file = input("Enter file path to a .pcapng file: ")
-            self.packets = pyshark.FileCapture(input_file=file, display_filter= 'wlan.fc.type_subtype eq 4 ')
+            self.file = input("Enter file path to a .pcapng file: ")
+            self.packets = pyshark.FileCapture(input_file=self.file, display_filter= 'wlan.fc.type_subtype eq 4 ')
         except:
             print("Could not find packet file!")
 
@@ -115,7 +116,8 @@ class MACFingerPrinter:
         self.MAC_Fingerprints = {}
         self.LocalBitSetSigns =['2','3','6','7','a','b','e','f']
         self.UniqueDevices = []
-        self.JaccardComparator = JaccardComparator()
+        self.PacketComparator = PacketComparator()
+        self.timeAnalyser = TimeAnalyser()
 
     def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap,extCap ,timeStamp):
         """
@@ -205,7 +207,7 @@ class MACFingerPrinter:
                         print("Reading packet number: {}".format(packet.number))
                         """------------------------------------------------------------------------------------"""
 
-                        self.appendToDict(inputMAC= packet.wlan.ta,inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
+                        self.appendToDict(inputMAC= str(packet.wlan.ta),inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
 
                     else:
                         nossid = True
@@ -213,12 +215,17 @@ class MACFingerPrinter:
                     pass
 
     def processFingerprints(self):
-        starttime = datetime.datetime.now()
+        devices_not_to_be_time_analysed = []
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
-            if not (dictItem[1].getHash() in readItems):
+            ssidArray = dictItem[1].getSSIDArray()
+            if  (ssidArray[0] != "SSID: "):
+                devices_not_to_be_time_analysed.append(dictItem[0])
+            if (not (dictItem[1].getHash() in readItems)) and (dictItem[0] in devices_not_to_be_time_analysed):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
+
+        timeAnalyseAmount = self.timeAnalyser.processFile(self.file,devices_not_to_be_time_analysed)
 
         for packetX in self.UniqueDevices:
             matches = []
@@ -226,23 +233,22 @@ class MACFingerPrinter:
                 "Processing packet nr: {} of {}".format(self.UniqueDevices.index(packetX) + 1, len(self.UniqueDevices)))
             for packetY in self.UniqueDevices:
                 if (packetX[0] != packetY[0]):
-                    jaccard = self.JaccardComparator.comparePackets(packetX[1], packetY[1])
-                    print("Similarity of packets {} and {} is : {}".format(packetX[0], packetY[0], jaccard))
-                    if (0.5 < jaccard < 1):
+                    similarity = self.PacketComparator.comparePackets(packetX[1], packetY[1])
+                    print("Similarity of packets {} and {} is : {}".format(packetX[0], packetY[0], similarity))
+                    if (0.5 < similarity < 1):
                         matches.append(packetY)
             for match in matches:
                 packetX[1].mergeFingerPrints(match[1])
                 self.UniqueDevices.remove(match)
                 print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
-        print("This took {} mikroseconds".format(str(datetime.datetime.now().microsecond - starttime.microsecond)))
-
+        return timeAnalyseAmount + len(self.UniqueDevices)
 
     def presentUniqueDevices(self):
         """
         Presents Amount of read devices and the different MAC Addresses with Fingerprints.
         """
-        Fingerprinter.processFingerprints()
-        print("Amount of devices discovered: {}".format(len(self.UniqueDevices)))
+        deviceAmount = Fingerprinter.processFingerprints()
+        print("Amount of devices discovered: {}".format(deviceAmount))
         for item in self.UniqueDevices:
             if item[1].getOUI() in self.OUIs.keys():
 
