@@ -131,7 +131,9 @@ class TimeAnalyser:
         try:
             #captureFile = pyshark.FileCapture(input("Enter file path to a .pcapng file: "), display_filter="wlan.sa != 22:22:22:22:22:22 && wlan.da != 22:22:22:22:22:22 && wlan.sa != ac:37:43:3c:d5:53")
             #captureFile = pyshark.FileCapture(input("Enter file path to a .pcapng file: "), display_filter="wlan.sa != 22:22:22:22:22:22 && wlan.da != 22:22:22:22:22:22")
-            captureFile = pyshark.FileCapture(inputFile, display_filter= pysharkFilter)
+            captureFile = inputFile
+            captureFile.display_filter=pysharkFilter
+            #captureFile = pyshark.FileCapture(inputFile, display_filter= pysharkFilter)
 
 
             #IFATArray = getIFAT(captureFile)
