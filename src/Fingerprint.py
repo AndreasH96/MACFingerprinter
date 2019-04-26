@@ -1,8 +1,6 @@
 import pyshark
 import datetime
 import json
-from math import *
-import numpy
 from PacketComparator_Jaccard import JaccardComparator
 
 
@@ -14,7 +12,7 @@ class FingerPrint:
     The fingerprint is currently based only on what SSIDs the device sends probe request to.
     """
 
-    def __init__(self,SSID= None, MAC= None, timeStamp=datetime.datetime.now(), OUI=None, extCap= None):
+    def __init__(self,SSID= None, MAC= None, timeStamp=datetime.datetime.now(), OUI=None, extCap= None, htCap = None):
 
         """
         Takes in the first SSID the MAC address has transmitted a probe request to
@@ -23,19 +21,15 @@ class FingerPrint:
         TimeStamp[1] is a Time Stamp for the latest time a SSID was added to the fingerprint
         :param SSID:
         """
-        self.TimeStamp = [timeStamp, datetime.datetime.min]
-        if MAC != None:
-            self.fingerHash= hash(MAC)
-
-        else:
-            self.fingerHash = 0
+        self.TimeStamp = [timeStamp, timeStamp]
         self.SSIDArray = [str(SSID)]
 
         if(OUI != None):
             self.OUI = OUI
-        self.HTCapabilities = None
+        self.HTCapabilities = htCap
         self.ExtendedCapabilities = extCap
         self.hashFingerPrint()
+
     def addExtendedCapabilitiesLen(self,input):
         self.ExtendedCapLen = input
 
@@ -52,7 +46,7 @@ class FingerPrint:
         self.hashFingerPrint()
         if timeStamp is not None:
             self.updateTimeStamp(timeStamp)
-
+        self.hashFingerPrint()
     def getSSIDArray(self):
         """
         :return: The SSID Array of the FingerPrint
@@ -84,9 +78,9 @@ class FingerPrint:
                 self.SSIDArray.remove("SSID: ")
 
             if(self.OUI != None):
-                self.fingerHash = hash(str(self.SSIDArray) + str(self.OUI))
+                self.fingerHash =   hash(str(self.SSIDArray) +str(self.HTCapabilities) + str(self.ExtendedCapabilities) + str(self.OUI))
             else:
-                self.fingerHash = hash(str(self.SSIDArray))
+                self.fingerHash =   hash(str(self.SSIDArray) +str(self.HTCapabilities) + str(self.ExtendedCapabilities))
     
     def updateTimeStamp(self, timeStamp):
 
@@ -123,7 +117,7 @@ class MACFingerPrinter:
         self.UniqueDevices = []
         self.JaccardComparator = JaccardComparator()
 
-    def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap, timeStamp,extCap):
+    def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap,extCap ,timeStamp):
         """
         Adds the MAC and SSID to the dictionary if the MAC is new
         Adds SSID to corresponding MAC if the SSID has not been read to that MAC earlier
@@ -136,30 +130,16 @@ class MACFingerPrinter:
             if inputMAC in self.MAC_Fingerprints.keys() and inputSSID not in self.MAC_Fingerprints[inputMAC].getSSIDArray():
                 newFingerprint = self.MAC_Fingerprints[inputMAC]
                 newFingerprint.addSSID(inputSSID, timeStamp)
-                newFingerprint.addHTCapabilities(inputHTCap)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
             else:
-                fingerPrint = FingerPrint(SSID = inputSSID,OUI=inputOUI, timeStamp=timeStamp, extCap = extCap)
-                fingerPrint.addHTCapabilities(inputHTCap)
+                fingerPrint = FingerPrint(SSID = inputSSID,OUI=inputOUI, timeStamp=timeStamp, extCap = extCap,htCap=inputHTCap)
+
                 self.MAC_Fingerprints[inputMAC] = fingerPrint
         else:
             if inputMAC not in self.MAC_Fingerprints.keys():
-                newFingerprint = FingerPrint(SSID = inputSSID, MAC=inputMAC,OUI = inputOUI, timeStamp=timeStamp, extCap = extCap)
+                newFingerprint = FingerPrint(SSID = inputSSID, MAC=inputMAC,OUI = inputOUI, timeStamp=timeStamp, extCap = extCap,htCap= inputHTCap)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
-
-    def calcDeviceAmount(self):
-        """
-        Compares hashes of the Fingerprints to estimate amount of devices
-        :return: Estimated amount of devices
-        """
-        amount = 0
-        readItems = []
-        for dictItem in self.MAC_Fingerprints.items():
-            if not (dictItem[1].getHash()  in readItems):
-                readItems.append(dictItem[1].getHash())
-                amount = amount +1
-        return amount
-
+        self.MAC_Fingerprints[inputMAC].hashFingerPrint()
     def readMACAddresses(self):
         Probe_Request_Type = 4
         """
@@ -225,7 +205,7 @@ class MACFingerPrinter:
                         print("Reading packet number: {}".format(packet.number))
                         """------------------------------------------------------------------------------------"""
 
-                        self.appendToDict(packet.wlan.ta, ssid,oui,htCap, packet.sniff_time, extCapField)
+                        self.appendToDict(inputMAC= packet.wlan.ta,inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
 
                     else:
                         nossid = True
@@ -233,28 +213,28 @@ class MACFingerPrinter:
                     pass
 
     def processFingerprints(self):
+        starttime = datetime.datetime.now()
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
             if not (dictItem[1].getHash() in readItems):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
 
-        for packet1 in self.UniqueDevices:
+        for packetX in self.UniqueDevices:
             matches = []
             print(
-                "Processing packet nr: {} of {}".format(self.UniqueDevices.index(packet1) + 1, len(self.UniqueDevices)))
-            for packet2 in self.UniqueDevices:
-                data1 = packet1[1]
-                data2 = packet2[1]
-                if (packet1[0] != packet2[0]):
-                    jaccard = self.JaccardComparator.comparePackets(packet1[1], packet2[1])
-                    print("Similarity of packets {} and {} is : {}".format(packet1[0], packet2[0], jaccard))
+                "Processing packet nr: {} of {}".format(self.UniqueDevices.index(packetX) + 1, len(self.UniqueDevices)))
+            for packetY in self.UniqueDevices:
+                if (packetX[0] != packetY[0]):
+                    jaccard = self.JaccardComparator.comparePackets(packetX[1], packetY[1])
+                    print("Similarity of packets {} and {} is : {}".format(packetX[0], packetY[0], jaccard))
                     if (0.5 < jaccard < 1):
-                        matches.append(packet2)
+                        matches.append(packetY)
             for match in matches:
-                packet1[1].mergeFingerPrints(match[1])
+                packetX[1].mergeFingerPrints(match[1])
                 self.UniqueDevices.remove(match)
                 print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
+        print("This took {} mikroseconds".format(str(datetime.datetime.now().microsecond - starttime.microsecond)))
 
 
     def presentUniqueDevices(self):
@@ -279,7 +259,6 @@ class MACFingerPrinter:
                                 item[1].getHash()))
 Fingerprinter = MACFingerPrinter()
 Fingerprinter.readMACAddresses()
-
 Fingerprinter.presentUniqueDevices()
 
 
