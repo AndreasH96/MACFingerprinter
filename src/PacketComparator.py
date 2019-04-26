@@ -1,7 +1,7 @@
 
 from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
-class JaccardComparator:
+class PacketComparator:
 
     def __init__(self):
         pass
@@ -23,7 +23,7 @@ class JaccardComparator:
 
 
             """---------Cosine Method---------"""
-            a_vals = Counter(packet1.SSIDArray)
+            """  a_vals = Counter(packet1.SSIDArray)
             b_vals = Counter(packet2.SSIDArray)
             words = list(a_vals.keys() | b_vals.keys())
             a_vect =[a_vals.get(word,0) for word in words]
@@ -33,7 +33,7 @@ class JaccardComparator:
             len_b = sum(bv*bv for bv in b_vect) **0.5
             dot =   sum(av*bv for av,bv in zip(a_vect,b_vect))
 
-            cosine = (dot/(len_a *len_b)) * 0.5
+            cosine = (dot/(len_a *len_b)) * 0.5"""
             """------------------------------"""
             ouijaccard = 0
             if packet1.OUI == packet2.OUI:
@@ -48,4 +48,4 @@ class JaccardComparator:
                 extcapjaccard = 1
 
 
-            return (( cosine)  +  (ouijaccard * htcapjaccard * extcapjaccard * 0.5))
+            return ((ssidJaccard)  +  (ouijaccard * htcapjaccard * extcapjaccard * 0.5))
