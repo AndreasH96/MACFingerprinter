@@ -114,6 +114,7 @@ class MACFingerPrinter:
         self.PacketComparator = PacketComparator()
         self.timeAnalyser = TimeAnalyser()
 
+
     def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap,extCap ,timeStamp):
         """
         Adds the MAC and SSID to the dictionary if the MAC is new
@@ -142,6 +143,7 @@ class MACFingerPrinter:
         try:
             if(mode =="File"):
                 self.source = input("Enter file path to a .pcapng file: ")
+                #self.source = r"C:\Users\Andreas\PycharmProjects\SSIDFingerprint\Fingerprint\SniffFree8plus_7Plus_6Plus_HTC.pcapng"
                 self.packets = pyshark.FileCapture(input_file=self.source, display_filter= 'wlan.fc.type_subtype eq 4')
             elif (mode =="Live"):
                 self.source = "Wi-Fi 2"
@@ -154,84 +156,86 @@ class MACFingerPrinter:
         except:
             print("Could not find packet file!")
 
-        if len(self.packets) > 0:
-            """
-            Reads probe requests packets and extracts valuable parts
-            """
-            for packet in self.packets:
 
-                if "wlan_mgt" in packet:
-                    if int(packet.wlan_mgt.fc_type_subtype) == Probe_Request_Type:
-                        nossid = False
-                        if not str(packet.wlan_mgt.tag)[:34] == "Tag: SSID parameter set: Broadcast":
-                            ssid = packet.wlan_mgt.ssid
+        """
+        Reads probe requests packets and extracts valuable parts
+        """
+        for packet in self.packets:
 
-                            oui = packet.wlan_mgt.tag_oui
-                            self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
-                        else:
-                            nossid = True
-                else:
+            if "wlan_mgt" in packet:
+                if int(packet.wlan_mgt.fc_type_subtype) == Probe_Request_Type:
                     nossid = False
-                    try:
-                        if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
-                            ssid = packet[3].ssid
+                    if not str(packet.wlan_mgt.tag)[:34] == "Tag: SSID parameter set: Broadcast":
+                        ssid = packet.wlan_mgt.ssid
+
+                        oui = packet.wlan_mgt.tag_oui
+                        self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
+                    else:
+                        nossid = True
+            else:
+                nossid = False
+                try:
+                    if not str(packet[3].tag)[:34] == "Tag: SSID parameter set: Broadcast":
+                        ssid = packet[3].ssid
+                        try:
+                            oui = hex(int(packet[3].tag_oui))
+                            oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                        except:
+                            oui = 000000
+                        try:
+                            htCap = packet[3].ht_capabilities
+                        except:
+                            htCap = 0
+                        """-------------------------Extraction of Extended Capabilities------------------------"""
+                        extCapField = []
+                        tempOcts = []
+                        for extCapBit in range(0,64):
                             try:
-                                oui = hex(int(packet[3].tag_oui))
-                                oui = ("0" * (8-len(oui)) + oui[(8-len(oui)):]).upper()
+                                if(extCapBit == 41):
+                                    """This is done since bit 41-43 are merged together as one variable within Wireshark/Pyshark"""
+                                    threeBits =  packet[3].extcap_serv_int_granularity
+                                    for bit in range(0,3):
+                                        exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
+                                    extCapBit = 43
+                                elif(extCapBit == 60):
+                                    """This is done since Wireshark 2.6.6 has a bug where the Protected QLoad report (bit 60) is read as bit 61"""
+
+                                    tempOcts.append('0')
+                                else:
+                                    exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+
+                                    if "x" in tempOcts[extCapBit %8]:
+                                        tempOcts[extCapBit % 8] = int(tempOcts[extCapBit % 8][2:])
+
+                                    if ((extCapBit +1) % 8 == 0) and extCapBit > 0:
+                                        byteString = ""
+                                        for item in  range(0,8):
+                                            byteString = byteString +  str(tempOcts[item])
+                                        tempOcts.clear()
+                                        extCapField.append(str(int((byteString[4:8])[::-1],2)) + str(int((byteString[:4])[::-1],2)))
+
                             except:
-                                oui = 000000
-                            try:
-                                htCap = packet[3].ht_capabilities
-                            except:
-                                htCap = 0
-                            """-------------------------Extraction of Extended Capabilities------------------------"""
-                            extCapField = []
-                            tempOcts = []
-                            for extCapBit in range(0,64):
-                                try:
-                                    if(extCapBit == 41):
-                                        """This is done since bit 41-43 are merged together as one variable within Wireshark/Pyshark"""
-                                        threeBits =  packet[3].extcap_serv_int_granularity
-                                        for bit in range(0,3):
-                                            exec('tempOcts.append(threeBits & 0x0' + str(2^bit)+')')
-                                        extCapBit = 43
-                                    elif(extCapBit == 60):
-                                        """This is done since Wireshark 2.6.6 has a bug where the Protected QLoad report (bit 60) is read as bit 61"""
+                                pass
+                        print("Reading packet number: {}".format(packet.number))
+                        """------------------------------------------------------------------------------------"""
 
-                                        tempOcts.append('0')
-                                    else:
-                                        exec('tempOcts.append('  + 'packet[3].extcap_b'+str(extCapBit) +')')
+                        self.appendToDict(inputMAC= str(packet.wlan.ta),inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
 
-                                        if "x" in tempOcts[extCapBit %8]:
-                                            tempOcts[extCapBit % 8] = int(tempOcts[extCapBit % 8][2:])
-
-                                        if ((extCapBit +1) % 8 == 0) and extCapBit > 0:
-                                            byteString = ""
-                                            for item in  range(0,8):
-                                                byteString = byteString +  str(tempOcts[item])
-                                            tempOcts.clear()
-                                            extCapField.append(str(int((byteString[4:8])[::-1],2)) + str(int((byteString[:4])[::-1],2)))
-
-                                except:
-                                    pass
-                            print("Reading packet number: {}".format(packet.number))
-                            """------------------------------------------------------------------------------------"""
-
-                            self.appendToDict(inputMAC= str(packet.wlan.ta),inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
-
-                        else:
-                            nossid = True
-                    except:
-                        pass
-            self.presentUniqueDevices()
+                    else:
+                        nossid = True
+                except:
+                    pass
+        self.presentUniqueDevices()
 
     def processFingerprints(self):
+        starttime = datetime.datetime.now().microsecond
         devices_not_to_be_time_analysed = []
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
             ssidArray = dictItem[1].getSSIDArray()
-            if  (ssidArray[0] != "SSID: "):
+            if  (ssidArray[0] != "SSID: "):#len(ssidArray) > 1:
                 devices_not_to_be_time_analysed.append(dictItem[0])
+
             if (not (dictItem[1].getHash() in readItems)) and (dictItem[0] in devices_not_to_be_time_analysed):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
@@ -252,8 +256,9 @@ class MACFingerPrinter:
                 packetX[1].mergeFingerPrints(match[1])
                 self.UniqueDevices.remove(match)
                 print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
-        return timeAnalyseAmount + len(self.UniqueDevices)
-
+        print("This took {} mikroseconds".format(datetime.datetime.now().microsecond - starttime))
+        return  len(self.UniqueDevices) +timeAnalyseAmount
+        #342483
     def presentUniqueDevices(self):
         """
         Presents Amount of read devices and the different MAC Addresses with Fingerprints.
