@@ -3,6 +3,7 @@ import datetime
 import json
 from PacketComparator import PacketComparator
 from timeAnalysis import TimeAnalyser
+from timeAnalysisV2 import TimeAnalyser2
 
 
 
@@ -112,7 +113,7 @@ class MACFingerPrinter:
         self.LocalBitSetSigns =['2','3','6','7','a','b','e','f']
         self.UniqueDevices = []
         self.PacketComparator = PacketComparator()
-        self.timeAnalyser = TimeAnalyser()
+        self.timeAnalyser = TimeAnalyser2()
 
 
     def appendToDict(self, inputMAC, inputSSID,inputOUI,inputHTCap,extCap ,timeStamp):
@@ -143,7 +144,6 @@ class MACFingerPrinter:
         try:
             if(mode =="File"):
                 self.source = input("Enter file path to a .pcapng file: ")
-                #self.source = r"C:\Users\Andreas\PycharmProjects\SSIDFingerprint\Fingerprint\SniffFree8plus_7Plus_6Plus_HTC.pcapng"
                 self.packets = pyshark.FileCapture(input_file=self.source, display_filter= 'wlan.fc.type_subtype eq 4')
             elif (mode =="Live"):
                 self.source = "Wi-Fi 2"
@@ -228,19 +228,19 @@ class MACFingerPrinter:
         self.presentUniqueDevices()
 
     def processFingerprints(self):
-        starttime = datetime.datetime.now().microsecond
+        starttime = datetime.datetime.now()
         devices_not_to_be_time_analysed = []
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
             ssidArray = dictItem[1].getSSIDArray()
-            if  (ssidArray[0] != "SSID: "):#len(ssidArray) > 1:
+            if (ssidArray[0] != "SSID: ") :#and (not ((ssidArray[0] == "homerun1x") and len(ssidArray)==1)):
                 devices_not_to_be_time_analysed.append(dictItem[0])
 
             if (not (dictItem[1].getHash() in readItems)) and (dictItem[0] in devices_not_to_be_time_analysed):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
 
-        timeAnalyseAmount = self.timeAnalyser.processFile(self.packets,devices_not_to_be_time_analysed)
+        timeAnalyseAmount = self.timeAnalyser.processData(self.packets,devices_not_to_be_time_analysed)
 
         for packetX in self.UniqueDevices:
             matches = []
@@ -250,15 +250,14 @@ class MACFingerPrinter:
                 if (packetX[0] != packetY[0]):
                     similarity = self.PacketComparator.comparePackets(packetX[1], packetY[1])
                     print("Similarity of packets {} and {} is : {}".format(packetX[0], packetY[0], similarity))
-                    if (0.5 < similarity < 1):
+                    if (0.6 < similarity < 1):
                         matches.append(packetY)
             for match in matches:
                 packetX[1].mergeFingerPrints(match[1])
                 self.UniqueDevices.remove(match)
                 print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
-        print("This took {} mikroseconds".format(datetime.datetime.now().microsecond - starttime))
+        print("Processing time: {} ".format(datetime.datetime.now() - starttime))
         return  len(self.UniqueDevices) +timeAnalyseAmount
-        #342483
     def presentUniqueDevices(self):
         """
         Presents Amount of read devices and the different MAC Addresses with Fingerprints.
