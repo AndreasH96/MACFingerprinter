@@ -1,30 +1,26 @@
-
-from sklearn.metrics.pairwise import cosine_similarity
 from collections import Counter
 class PacketComparator:
 
     def __init__(self):
         pass
-    def comparePackets(self,packet1 , packet2):
+    def comparePackets(self,packetx , packety):
 
-        if (packet1 is None) or (packet2 is None):
+        if (packetx is None) or (packety is None):
             print("ERROR: NONE ARGUMENT")
 
         else:
             """--------Compare SSID Arrays---------"""
 
             """---------Jaccard Method--------"""
-            """ssid_intersection_cadrinality = len(set.intersection(*[set(packet1.SSIDArray), set(packet2.SSIDArray)]))
-            ssid_union_cardinality = len(set.union(*[set(packet1.SSIDArray), set(packet2.SSIDArray)]))
+            """ssid_intersection_cadrinality = len(set.intersection(*[set(packetx.SSIDArray), set(packety.SSIDArray)]))
+            ssid_union_cardinality = len(set.union(*[set(packetx.SSIDArray), set(packety.SSIDArray)]))
             ssidJaccard = (ssid_intersection_cadrinality/float(ssid_union_cardinality)) * 0.5"""
 
             """-------------------------------"""
 
-
-
             """---------Cosine Method---------"""
-            a_vals = Counter(packet1.SSIDArray)
-            b_vals = Counter(packet2.SSIDArray)
+            a_vals = Counter(packetx.SSIDArray)
+            b_vals = Counter(packety.SSIDArray)
             words = list(a_vals.keys() | b_vals.keys())
             a_vect =[a_vals.get(word,0) for word in words]
             b_vect =[b_vals.get(word,0) for word in words]
@@ -35,17 +31,17 @@ class PacketComparator:
 
             cosine = (dot/(len_a *len_b)) * 0.5
             """------------------------------"""
-            ouijaccard = 0
-            if packet1.OUI == packet2.OUI:
-                ouijaccard = 1
+            equalOUI = 0
+            if packetx.OUI == packety.OUI:
+                equalOUI = 1
 
-            htcapjaccard = 0
-            if packet1.HTCapabilities == packet2.HTCapabilities:
-                htcapjaccard = 1
+            equalHTcap = 0
+            if packetx.HTCapabilities == packety.HTCapabilities:
+                equalHTcap = 1
 
-            extcapjaccard = 0
-            if packet1.ExtendedCapabilities == packet2.ExtendedCapabilities:
-                extcapjaccard = 1
+            equalEXTcap = 0
+            if packetx.ExtendedCapabilities == packety.ExtendedCapabilities:
+                equalEXTcap = 1
 
-
-            return ((cosine)  +  (ouijaccard * htcapjaccard * extcapjaccard * 0.5))
+            equalFields = equalOUI * equalHTcap * equalEXTcap * 0.5
+            return ((cosine)  + equalFields )
