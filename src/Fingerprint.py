@@ -31,6 +31,10 @@ class FingerPrint:
         self.HTCapabilities = htCap
         self.ExtendedCapabilities = extCap
         self.hashFingerPrint()
+        if(MAC != None):
+            self.LocalMAC = False
+        elif(MAC == None):
+            self.LocalMAC = True
 
     def addExtendedCapabilitiesLen(self,input):
         self.ExtendedCapLen = input
@@ -43,12 +47,12 @@ class FingerPrint:
         Adds the SSID to the SSID Array, sorts the array, generates new hash and updates timestamp
         :param SSID: SSID from probe request
         """
-        self.SSIDArray.append(str(SSID))
-        self.SSIDArray.sort()
-        self.hashFingerPrint()
-        if timeStamp is not None:
-            self.updateTimeStamp(timeStamp)
-        self.hashFingerPrint()
+        if(SSID not in self.SSIDArray):
+            self.SSIDArray.append(str(SSID))
+            self.SSIDArray.sort()
+            if timeStamp is not None:
+                self.updateTimeStamp(timeStamp)
+            self.hashFingerPrint()
     def getSSIDArray(self):
         """
         :return: The SSID Array of the FingerPrint
@@ -76,7 +80,7 @@ class FingerPrint:
         Hashes the current state of the SSID Array
         """
         if(self.SSIDArray != None):
-            if "SSID: " in self.SSIDArray and len(self.SSIDArray) >1:
+            if "SSID: " in self.SSIDArray and len(self.SSIDArray) > 1:
                 self.SSIDArray.remove("SSID: ")
 
             if(self.OUI != None):
@@ -97,6 +101,10 @@ class FingerPrint:
                 self.addSSID(ssid)
         if self.TimeStamp[1] < fingerprint.TimeStamp[1]:
             self.TimeStamp[1] = fingerprint.TimeStamp[1]
+
+    def isLocalMAC(self):
+        return self.LocalMAC
+
 class MACFingerPrinter:
     """
     This program creates a python Dictionary with Randomized MAC-addresses as keys and Fingerprints as items. This is used
@@ -125,7 +133,6 @@ class MACFingerPrinter:
         """
 
         if((str(inputMAC))[1] in self.LocalBitSetSigns):
-
             if inputMAC in self.MAC_Fingerprints.keys() and inputSSID not in self.MAC_Fingerprints[inputMAC].getSSIDArray():
                 newFingerprint = self.MAC_Fingerprints[inputMAC]
                 newFingerprint.addSSID(inputSSID, timeStamp)
@@ -136,9 +143,14 @@ class MACFingerPrinter:
                 self.MAC_Fingerprints[inputMAC] = fingerPrint
         else:
             if inputMAC not in self.MAC_Fingerprints.keys():
-                newFingerprint = FingerPrint(SSID = inputSSID, MAC=inputMAC,OUI = inputOUI, timeStamp=timeStamp, extCap = extCap,htCap= inputHTCap)
+                newFingerprint = FingerPrint(SSID = inputSSID, MAC=1,OUI = inputOUI, timeStamp=timeStamp, extCap = extCap,htCap= inputHTCap)
                 self.MAC_Fingerprints[inputMAC] = newFingerprint
+            else:
+                fingerPrint = self.MAC_Fingerprints[inputMAC]
+                fingerPrint.addSSID(inputSSID)
+                self.MAC_Fingerprints[inputMAC] = fingerPrint
         self.MAC_Fingerprints[inputMAC].hashFingerPrint()
+
     def readMACAddresses(self,mode):
         Probe_Request_Type = 4
         try:
@@ -213,14 +225,11 @@ class MACFingerPrinter:
                                             byteString = byteString +  str(tempOcts[item])
                                         tempOcts.clear()
                                         extCapField.append(str(int((byteString[4:8])[::-1],2)) + str(int((byteString[:4])[::-1],2)))
-
                             except:
                                 pass
                         print("Reading packet number: {}".format(packet.number))
                         """------------------------------------------------------------------------------------"""
-
                         self.appendToDict(inputMAC= str(packet.wlan.ta),inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
-
                     else:
                         nossid = True
                 except:
@@ -233,9 +242,8 @@ class MACFingerPrinter:
         readItems = []
         for dictItem in self.MAC_Fingerprints.items():
             ssidArray = dictItem[1].getSSIDArray()
-            if (ssidArray[0] != "SSID: ") :#and (not ((ssidArray[0] == "homerun1x") and len(ssidArray)==1)):
+            if (ssidArray[0] != "SSID: " ):
                 devices_not_to_be_time_analysed.append(dictItem[0])
-
             if (not (dictItem[1].getHash() in readItems)) and (dictItem[0] in devices_not_to_be_time_analysed):
                 readItems.append(dictItem[1].getHash())
                 self.UniqueDevices.append(dictItem)
@@ -250,14 +258,14 @@ class MACFingerPrinter:
                 if (packetX[0] != packetY[0]):
                     similarity = self.PacketComparator.comparePackets(packetX[1], packetY[1])
                     print("Similarity of packets {} and {} is : {}".format(packetX[0], packetY[0], similarity))
-                    if (0.6 < similarity < 1):
+                    if (0.8 < similarity < 1):
                         matches.append(packetY)
             for match in matches:
                 packetX[1].mergeFingerPrints(match[1])
                 self.UniqueDevices.remove(match)
                 print("Length of UniqueDevices: {}".format(len(self.UniqueDevices)))
         print("Processing time: {} ".format(datetime.datetime.now() - starttime))
-        return  len(self.UniqueDevices) +timeAnalyseAmount
+        return  len(self.UniqueDevices) + timeAnalyseAmount
     def presentUniqueDevices(self):
         """
         Presents Amount of read devices and the different MAC Addresses with Fingerprints.
@@ -278,6 +286,3 @@ class MACFingerPrinter:
                         .format(item[0], item[1].getSSIDArray(), item[1].getOUI(),
                                 item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
                                 item[1].getHash()))
-
-
-
