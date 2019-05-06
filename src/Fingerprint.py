@@ -4,7 +4,8 @@ import json
 from PacketComparator import PacketComparator
 from timeAnalysis import TimeAnalyser
 from timeAnalysisV2 import TimeAnalyser2
-
+import wx
+import ctypes
 
 
 class FingerPrint:
@@ -114,9 +115,11 @@ class MACFingerPrinter:
         """
         ----------------------Initiates the Dictionary------------------------------------
         """
-
-        with open("../assets/OUIs.json") as JSON_DATA:
-            self.OUIs = json.load(JSON_DATA)
+        try:
+            with open("../assets/OUIs.json") as JSON_DATA:
+                self.OUIs = json.load(JSON_DATA)
+        except:
+            pass
         self.MAC_Fingerprints = {}
         self.LocalBitSetSigns =['2','3','6','7','a','b','e','f']
         self.UniqueDevices = []
@@ -151,12 +154,14 @@ class MACFingerPrinter:
                 self.MAC_Fingerprints[inputMAC] = fingerPrint
         self.MAC_Fingerprints[inputMAC].hashFingerPrint()
 
-    def readMACAddresses(self,mode):
+    def readMACAddresses(self,mode,selectedFile = None,consoleAddress = None,runningApplication = None):
         Probe_Request_Type = 4
+        self.runningApplication = runningApplication
         try:
             if(mode =="File"):
-                self.source = input("Enter file path to a .pcapng file: ")
+                self.source = selectedFile
                 self.packets = pyshark.FileCapture(input_file=self.source, display_filter= 'wlan.fc.type_subtype eq 4')
+               
             elif (mode =="Live"):
                 self.source = "Wi-Fi 2"
                 self.packets = pyshark.LiveCapture(interface= self.source,bpf_filter="wlan.fc.type_subtype eq 4")
@@ -167,7 +172,6 @@ class MACFingerPrinter:
                 print(self.packets)
         except:
             print("Could not find packet file!")
-
 
         """
         Reads probe requests packets and extracts valuable parts
@@ -181,7 +185,7 @@ class MACFingerPrinter:
                         ssid = packet.wlan_mgt.ssid
 
                         oui = packet.wlan_mgt.tag_oui
-                        self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
+                        #self.appendToDict(packet.wlan.ta, ssid,oui, packet.sniff_time)
                     else:
                         nossid = True
             else:
@@ -228,13 +232,14 @@ class MACFingerPrinter:
                             except:
                                 pass
                         print("Reading packet number: {}".format(packet.number))
+                        
                         """------------------------------------------------------------------------------------"""
                         self.appendToDict(inputMAC= str(packet.wlan.ta),inputSSID= ssid,inputOUI= oui,inputHTCap= htCap,extCap= extCapField ,timeStamp= packet.sniff_time)
                     else:
                         nossid = True
                 except:
                     pass
-        self.presentUniqueDevices()
+        return self.presentUniqueDevices()
 
     def processFingerprints(self):
         starttime = datetime.datetime.now()
@@ -271,18 +276,20 @@ class MACFingerPrinter:
         Presents Amount of read devices and the different MAC Addresses with Fingerprints.
         """
         deviceAmount = self.processFingerprints()
+        resultString = []
         print("Amount of devices discovered: {}".format(deviceAmount))
         for item in self.UniqueDevices:
             if item[1].getOUI() in self.OUIs.keys():
-
-                print(
-                    "MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
-                        .format(item[0], item[1].getSSIDArray(), self.OUIs[item[1].getOUI()],
+                currentDevice = ("MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}".format(item[0], item[1].getSSIDArray(), self.OUIs[item[1].getOUI()],
                                 item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
                                 item[1].getHash()))
+                    
             else:
-                print(
-                    "MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
+                currentDevice =("MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
                         .format(item[0], item[1].getSSIDArray(), item[1].getOUI(),
                                 item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
                                 item[1].getHash()))
+                                
+            print(currentDevice)
+            resultString.append(currentDevice)
+        return [deviceAmount,resultString]
