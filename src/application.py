@@ -3,7 +3,7 @@ import time
 import pyshark
 
 deviceCounter = MACFingerPrinter()
-modeSelect = input("Select Mode, Live or File: ")
+modeSelect =  input("Select Mode, Live or File: ")
 if (modeSelect == "Live") :
     while(1):
         deviceCounter.readMACAddresses(mode=modeSelect)
