@@ -6,3 +6,4 @@ This project is a proof of concept of a candidate thesis written by Karl-Johan D
 This software includes a simple GUI allowing for either reading a .pcapng file or capturing Live probe requests within a network.
 The thesis is named "A Study on Fingerprinting of Locally Assigned MAC-Addresses" and contains information on how  mobile  devices conduct MAC-Address randomziation and  how one possibly could fingerprint devices regardless.
 
+![test](https://github.com/favicon.ico | width=48)
