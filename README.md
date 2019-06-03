@@ -1,6 +1,6 @@
 # MAC Fingerprinter
 ![test](https://github.com/AndreasH96/MACFingerprinter/blob/master/assets/Logo.JPG  width="50" height="50")
-
+<img src="https://assets-cdn.github.com/images/modules/logos_page/GitHub-Mark.png" width="256" height="256" title="Github Logo">
 
 This project is a proof of concept of a candidate thesis written by Karl-Johan Djervbrant and Andreas Häggström. We are two computer science students at Halmstad University. Please keep in mind that this indeed is a proof of concept and NOT developed to be used in a real life environment. 
 This software includes a simple GUI allowing for either reading a .pcapng file or capturing Live probe requests within a network.
