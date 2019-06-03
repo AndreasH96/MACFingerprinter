@@ -3,6 +3,7 @@ import time
 import pyshark
 import wx
 
+
 class Application():
     def __init__(self):
         self.Mode = ""
@@ -124,3 +125,4 @@ class Application():
         print("Width = ",width," Height = ",height)
 
 application = Application()
+
