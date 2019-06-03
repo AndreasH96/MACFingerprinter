@@ -102,27 +102,32 @@ class Application():
         print("Live")
     def OnStartButtonClick(self,event):
         if  self.Mode == "Live" :
-            while(1):
-                self.deviceCounter.readMACAddresses(mode=self.Mode,runningApplication= self)
-                time.sleep(6)
+            self.deviceCounter = MACFingerPrinter()
+            deviceResult = self.deviceCounter.readMACAddresses(mode=self.Mode,runningApplication= self)
+            print(deviceResult)
+            self.updateResultWindow(deviceResult[0])
+            for row in deviceResult[1]:
+                self.updateConsole(row)
+                
         elif self.Mode == "File":
             file = self.fileSelector.GetPath()
-            #wx.PostEvent(self.updateConsole("Test2"),wx.InitDialogEvent(id=0))
             if  file.endswith(".pcapng"):
                 self.deviceCounter = MACFingerPrinter()
                 deviceResult = self.deviceCounter.readMACAddresses(mode = self.Mode,selectedFile=file,runningApplication=self)
-                self.ResultWindow.SetValue(str(deviceResult[0]))
-                self.ResultWindow.Fit()
+                self.updateResultWindow(deviceResult[0])
                 for row in deviceResult[1]:
-                    self.ConsoleWindow.AppendText("{}\n".format(row))
-                
+                    self.updateConsole(row)
             else:
                 print("Please select a file of type .pcapng")
     def updateConsole(self,newLine):
+        print("RECEIVED: {}".format(newLine))
         self.ConsoleWindow.AppendText("\n{}".format(newLine))
     def sizeChanged(self,event):
         width,height = event.GetSize()
         print("Width = ",width," Height = ",height)
-
+    def updateResultWindow(self, newResult):
+        print("RECEIVED {}".format(newResult))
+        self.ResultWindow.SetValue(str(newResult))
+        self.ResultWindow.Fit()
 application = Application()
 

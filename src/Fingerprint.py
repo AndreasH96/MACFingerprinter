@@ -5,9 +5,9 @@ from PacketComparator import PacketComparator
 from timeAnalysis import TimeAnalyser
 from timeAnalysisV2 import TimeAnalyser2
 import wx
+from pyshark.capture.capture import Capture
 import ctypes
-
-
+import pyshark.tshark as tshark
 class FingerPrint:
 
     """
@@ -166,23 +166,23 @@ class MACFingerPrinter:
 
         Probe_Request_Type = 4
         self.runningApplication = runningApplication
-        try:
-
-            if(mode.lower() =="file"):
+    
+        if(mode.lower() =="file"):
+            try:
                 self.source = selectedFile
                 self.packets = pyshark.FileCapture(input_file=self.source, display_filter= 'wlan.fc.type_subtype eq 4')
-               
-            elif (mode.lower() =="live"):
+            except:
+                print("Could not find packet file!")
+            
+        elif (mode.lower() =="live"):
+            try:
+        
+                self.source = "wlan0mon"
+                self.packets = Capture(display_filter="wlan.fc.type_subtype eq 4")
+                self.packets.load_packets(timeout=20, packet_count=10)
 
-                self.source = "Wi-Fi 2"
-                self.packets = pyshark.LiveCapture(interface= self.source,bpf_filter="wlan.fc.type_subtype eq 4")
-                self.packets.sniff(timeout=5)
-                if len(self.packets ) > 0:
-                    for packet in self.packets:
-                        print(packet)
-                print(self.packets)
-        except:
-            print("Could not find packet file!")
+            except Exception as e:
+                print("Failed to run Live Capture, error message : {}".format(e))
 
         """
         Reads probe requests packets and extracts valuable parts
@@ -292,23 +292,23 @@ class MACFingerPrinter:
         resultString = []
         print("Amount of devices discovered: {}".format(deviceAmount))
         for item in self.UniqueDevices:
+            currentDevice = ""
             if item[1].getOUI() in self.OUIs.keys():
 
-                print(
+                currentDevice =(
                     "MAC-Address:{} --- Fingerprint:{} --- \nOUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {}--- \nMax Signal Strenght: -{}dBm --- Hash: {}"
                         .format(item[0], item[1].getSSIDArray(), self.OUIs[item[1].getOUI()],
                                 item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],item[1].getMaxSignalStrenght(),item[1].getHash()))
                     
-            else:
-
-
+            else:   
 
                 currentDevice =("MAC-Address:{} --- Fingerprint:{} --- OUI: {} --- First Timestamp: {} --- Last Modified Timestamp: {} --- Hash: {}"
                         .format(item[0], item[1].getSSIDArray(), item[1].getOUI(),
                                 item[1].getTimeStamp()[0], item[1].getTimeStamp()[1],
                                 item[1].getHash()))
                                 
-            print(currentDevice)
+            #print(currentDevice)
             resultString.append(currentDevice)
+        print("RETURNING")
         return [deviceAmount,resultString]
 
