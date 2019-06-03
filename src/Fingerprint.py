@@ -115,11 +115,10 @@ class MACFingerPrinter:
         """
         ----------------------Initiates the Dictionary------------------------------------
         """
-        try:
-            with open("../assets/OUIs.json") as JSON_DATA:
-                self.OUIs = json.load(JSON_DATA)
-        except:
-            pass
+    
+        with open("/home/andreas/Documents/Programming/Python/MACFingerPrinter/MACFingerprinter/assets/OUIs.json") as JSON_DATA:
+            self.OUIs = json.load(JSON_DATA)
+    
         self.MAC_Fingerprints = {}
         self.LocalBitSetSigns =['2','3','6','7','a','b','e','f']
         self.UniqueDevices = []

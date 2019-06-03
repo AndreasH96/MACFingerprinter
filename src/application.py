@@ -76,7 +76,6 @@ class Application():
 
         self.frame.Show()
         self.app.MainLoop()
-        
 
     def start(self):
         modeSelect =  input("Select Mode, Live or File: ")
@@ -109,6 +108,7 @@ class Application():
             file = self.fileSelector.GetPath()
             #wx.PostEvent(self.updateConsole("Test2"),wx.InitDialogEvent(id=0))
             if  file.endswith(".pcapng"):
+                self.deviceCounter = MACFingerPrinter()
                 deviceResult = self.deviceCounter.readMACAddresses(mode = self.Mode,selectedFile=file,runningApplication=self)
                 self.ResultWindow.SetValue(str(deviceResult[0]))
                 self.ResultWindow.Fit()
