@@ -1,5 +1,5 @@
 # MAC Fingerprinter
-![test](https://github.com/AndreasH96/MACFingerprinter/blob/master/assets/Logo.JPG | width = 100)
+![test](https://github.com/AndreasH96/MACFingerprinter/blob/master/assets/Logo.JPG | width = 48)
 
 
 This project is a proof of concept of a candidate thesis written by Karl-Johan Djervbrant and Andreas Häggström. We are two computer science students at Halmstad University. Please keep in mind that this indeed is a proof of concept and NOT developed to be used in a real life environment. 
