@@ -83,11 +83,11 @@ class TimeAnalyser2:
 
 
     def processData(self,inputFile,devicesNotToProcess):
-        pysharkFilter = "wlan.fc.type_subtype  eq 4 "
+        pysharkFilter = "wlan.fc.type_subtype eq 4 && wlan.tag.vendor.oui.type == 8"
 
         for device in devicesNotToProcess:
-            pysharkFilter = pysharkFilter +"&& wlan.sa != {}".format(device)
-
+            pysharkFilter = pysharkFilter +"&& wlan.ta != {}".format(device)
+        pysharkFilter = pysharkFilter + " && wlan.ta != 38:0a:ab:01:07:8c"
         try:
             captureFile = inputFile
             captureFile.display_filter = pysharkFilter
